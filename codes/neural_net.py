@@ -5,55 +5,47 @@ import numpy
 from sklearn.preprocessing import OneHotEncoder
 numpy.set_printoptions(threshold=sys.maxsize)
 
+DEBUG=True
 class Neural_Net(object):
 
-    #def __init__(self, X_train, Y_train, nn_dims, init_method='init_with_rands'):
+    def log(self, msg):
+        if (DEBUG):
+            print(msg)
+
     def __init__(self, nn_dims, init_method='init_with_rands'):
-        #self.X = X_train
-        #self.Y = Y_train
         self.L = len(nn_dims)
-        #self.nx = X_train.shape[0]
-        #self.nh = nh
-        #self.ny = Y_train.shape[0]
-        #temporary
         self.params = {}
         self.activations = {}
         self.Z = {}
         self.init_with_rands(nn_dims)
 
     def init_with_zeroBias(self):
-        self.w1 = np.random.randn(self.nh,self.nx) * 0.01
-        self.b1 = np.zeros((self.nh, 1))
-        self.w2 = np.random.randn(self.ny,self.nh) * 0.01
-        self.b2 = np.zeros((self.ny,1))
+        pass
 
     def init_with_rands(self, nn_dims):
         for l in range(1,self.L):
             self.params['W'+str(l)] = np.random.randn(nn_dims[l],nn_dims[l-1]) * 0.01
-            self.params['b'+str(l)] = np.random.randn(nn_dims[l],1) * 0.01
+            self.params['b'+str(l)] = np.zeros((nn_dims[l],1))
 
     def init_better(self):
         self.w1 = np.zeros((nh,nx))
 
     def forward_propagation(self, X):
-        #for b,w in zip(self.Bs, self.Ws):
         self.activations[0] = X
         L = self.L - 1
         for l in range(1, L):
             self.Z[l] = np.dot(self.params['W'+str(l)], self.activations[l-1]) + self.params['b'+str(l)]
             self.activations[l] = self.relu(self.Z[l])
 
-        temp = np.exp(np.dot(self.params['W'+str(L)], self.activations[L-1]) + self.params['b'+str(L)])
+
+        self.Z[L] = np.dot(self.params['W'+str(L)], self.activations[L-1]) + self.params['b'+str(L)]
+        temp = np.exp(self.Z[L])
         self.activations[L] = temp / np.sum(temp, axis=0)
-        #self.activations[L-1] = self.sigmoid(np.dot(self.params['w'+str(L-1)], self.activations[L-2]) + self.params['b'+str(L-1)])
-            #a1 = np.tanh(np.dot(self.w1, X_test) + self.b1)
-            #a2 = self.sigmoid(np.dot(self.w2, self.a1) + self.b2)
 
     def backward_propagatation(self, Y_nn, Y):
         L = self.L - 1
         grads = {}
         m = Y.shape[1]
-        dAL = -np.divide(Y, Y_nn)
         dZL = Y_nn-Y
         grads['dW'+str(L)] = np.dot(dZL, self.activations[L-1].T) / m
         grads['db'+str(L)] = np.sum(dZL, axis=1, keepdims=True) / m
@@ -83,10 +75,6 @@ class Neural_Net(object):
     def evaluate(self, Y_nn, Y):
         m = Y.shape[1]
         cost = -1*np.sum(np.multiply(Y, np.log(Y_nn))) / m
-        #cost = -1 * np.sum(np.multiply(self.Y, np.log(self.a2)) + 
-        #            np.multiply(1-self.Y, np.log(1-self.a2)))
-        #cost = cost / self.Y.shape[1]
-
         return np.squeeze(cost)
 
     def update_params(self, grads, alpha):
@@ -94,11 +82,15 @@ class Neural_Net(object):
             self.params['W'+str(l)] = self.params['W'+str(l)] - alpha*grads['dW'+str(l)]
             self.params['b'+str(l)] = self.params['b'+str(l)] - alpha*grads['db'+str(l)]
 
-    def predict(self, X_test):
-        a2 = self.forward_propagation(X_test)
-        predictions = np.argmax(a2, axis=0)
-        #predictions = np.array(a2>0.5).astype(int)
-        return predictions
+    def predict(self, X_test, Y_test):
+        m = X_test.shape[1]
+        self.forward_propagation(X_test)
+        Y_pred = self.activations[self.L-1]
+        Y_pred = np.argmax(Y_pred, axis=0)
+        Y_pred = Y_pred.reshape(1, Y_pred.shape[0])
+        accuracy = np.sum((Y_pred==Y_test)/m)
+        print("Accuracy : ", accuracy*100, " %")
+        return Y_pred
 
     def sigmoid(self, z):
         return 1/(1+np.exp(-z))
