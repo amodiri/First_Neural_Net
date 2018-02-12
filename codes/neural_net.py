@@ -35,6 +35,8 @@ class Neural_Net(object):
 
         if(init_method == 'init_with_rands'):
             self.init_with_rands(nn_dims)
+        elif(init_method == 'init_with_he'):
+            self.init_with_he(nn_dims)
 
 
     def init_with_rands(self, nn_dims):
@@ -52,9 +54,9 @@ class Neural_Net(object):
             self.params['b'+str(l)] = np.zeros((nn_dims[l],1))
 
 
-    def init_better(self):
+    def init_with_he(self, nn_dims):
         """
-        Initializes the parameters of NN.
+        Initializes the parameters of NN with the method introduced by He et al
 
         Args:
             nn_dims (list): size of the neural net
@@ -62,7 +64,9 @@ class Neural_Net(object):
         Returns:
             None
         """
-        self.w1 = np.zeros((nh,nx))
+        for l in range(1,self.L):
+            self.params['W'+str(l)] = np.random.randn(nn_dims[l],nn_dims[l-1]) * np.sqrt(2/nn_dims[l-1])
+            self.params['b'+str(l)] = np.zeros((nn_dims[l],1))
 
 
     def forward_propagation(self, X):
@@ -117,7 +121,7 @@ class Neural_Net(object):
         return grads
 
 
-    def nn_training(self, X_train, Y_train, iterations, alpha):
+    def nn_training(self, X_train, Y_train, iterations, alpha, lambd):
         """
         Implements backward propagation
 
@@ -126,6 +130,7 @@ class Neural_Net(object):
             Y_train (array): training set outputs
             iterations (int): number of iterations for gradient descent
             alpha (float): learning rate
+            lambd (float): Regularization parameter
 
         Returns:
             Dictionary containing all gradient descent updates for parameters
@@ -133,21 +138,22 @@ class Neural_Net(object):
         """
         for i in range(0, iterations):
             self.forward_propagation(X_train)
-            cost = self.evaluate(self.activations[self.L-1],Y_train)
+            cost = self.evaluate(self.activations[self.L-1],Y_train, lambd)
             grads = self.backward_propagatation(self.activations[self.L-1],Y_train)
 
-            self.update_params(grads, alpha)
+            self.update_params(grads, alpha, lambd, Y_train.shape[1])
 
             print("{a} : {b}".format(a=i, b=cost))
 
 
-    def evaluate(self, Y_nn, Y):
+    def evaluate(self, Y_nn, Y, lambd):
         """
         Computes the cost value for the trained NN
 
         Args:
             Y_nn (array): NN estimated output
             Y (array): the given output
+            lambd (float): Regularization parameter
 
         Returns:
             value of cost function based on the given output values and their
@@ -155,10 +161,16 @@ class Neural_Net(object):
         """
         m = Y.shape[1]
         cost = -1*np.sum(np.multiply(Y, np.log(Y_nn))) / m
-        return np.squeeze(cost)
+
+        reg = 0
+        for l in range(1, self.L):
+            reg += np.sum(np.square(self.params['W'+str(l)]))
+        cost_with_reg = cost + reg * lambd / (2*m)
+
+        return np.squeeze(cost_with_reg)
 
 
-    def update_params(self, grads, alpha):
+    def update_params(self, grads, alpha, lambd, m):
         """
         Updates the parameters of NN based on the learning rate and the update
         values
@@ -166,12 +178,14 @@ class Neural_Net(object):
         Args:
             grads (dict): all gradient descent updates for parameters of NN
             alpha (float): learning rate
+            lambd (float): Regularization parameter
+            m (int): number of training data
 
         Returns:
             None
         """
         for l in range(1, self.L):
-            self.params['W'+str(l)] = self.params['W'+str(l)] - alpha*grads['dW'+str(l)]
+            self.params['W'+str(l)] = self.params['W'+str(l)] - alpha*grads['dW'+str(l)] - lambd * self.params['W'+str(l)] / m
             self.params['b'+str(l)] = self.params['b'+str(l)] - alpha*grads['db'+str(l)]
 
 
